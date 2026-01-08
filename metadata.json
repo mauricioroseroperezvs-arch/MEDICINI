@@ -1,0 +1,5 @@
+{
+  "name": "MEDICINIA.CO",
+  "description": "Asistente médico inteligente con IA para gestión clínica, codificación CIE-10/CUPS y auditoría bajo normativa colombiana.",
+  "requestFramePermissions": []
+}

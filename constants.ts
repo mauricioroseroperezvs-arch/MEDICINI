@@ -1,0 +1,77 @@
+import { Cie10Code, CupsCode } from './types';
+
+export const SPECIALTIES = [
+  "Medicina General",
+  "Medicina Interna",
+  "Pediatría",
+  "Ginecología y Obstetricia",
+  "Cirugía General",
+  "Ortopedia y Traumatología",
+  "Anestesiología",
+  "Cardiología",
+  "Dermatología",
+  "Endocrinología",
+  "Gastroenterología",
+  "Infectología",
+  "Nefrología",
+  "Neumología",
+  "Neurología",
+  "Oftalmología",
+  "Otorrinolaringología",
+  "Psiquiatría",
+  "Radiología",
+  "Urología",
+  "Medicina Familiar",
+  "Medicina de Urgencias",
+  "Medicina Física y Rehabilitación (Fisiatría)",
+  "Oncología Clínica",
+  "Hematología",
+  "Reumatología",
+  "Geriatría",
+  "Medicina del Deporte",
+  "Toxicología Clínica",
+  "Cirugía Plástica",
+  "Neurocirugía",
+  "Cirugía Cardiovascular",
+  "Cirugía de Tórax",
+  "Cirugía Pediátrica",
+  "Patología",
+  "Medicina Legal",
+  "Salud Ocupacional",
+  "Salud Pública",
+  "Auditoría Médica",
+  "Administración en Salud",
+  "Inmunología",
+  "Genética Médica",
+  "Farmacología Clínica",
+  "Medicina Nuclear",
+  "Radioterapia",
+  "Alergología",
+  "Dermato-oncología",
+  "Medicina del Dolor y Cuidados Paliativos",
+  "Cuidado Crítico (UCI)",
+  "Neonatología"
+];
+
+// Seed data only used if localStorage is empty
+export const SEED_CIE10: Cie10Code[] = [
+  { code: 'I10X', description: 'Hipertensión esencial (primaria)', active: true },
+  { code: 'E119', description: 'Diabetes mellitus no insulinodependiente, sin mención de complicación', active: true },
+  { code: 'J00X', description: 'Rinofaringitis aguda (resfriado común)', active: true },
+  { code: 'R51X', description: 'Cefalea', active: true },
+  { code: 'M545', description: 'Lumbago no especificado', active: true },
+  { code: 'A09X', description: 'Diarrea y gastroenteritis de presunto origen infeccioso', active: true },
+  { code: 'J209', description: 'Bronquitis aguda, no especificada', active: true },
+  { code: 'N390', description: 'Infección de vías urinarias, sitio no especificado', active: true },
+];
+
+export const SEED_CUPS: CupsCode[] = [
+  { code: '902210', description: 'Hemograma IV', category: 'Diagnostic', active: true, soatCode: '19304' },
+  { code: '903841', description: 'TSH Hormona Estimulante de Tiroides', category: 'Diagnostic', active: true, soatCode: '19307' },
+  { code: '895100', description: 'Electrocardiograma de ritmo o de superficie', category: 'Diagnostic', active: true, soatCode: '19101' },
+  { code: '890201', description: 'Consulta de primera vez por medicina general', category: 'Therapeutic', active: true },
+  { code: '871010', description: 'Radiografía de tórax (PA o AP y Lateral)', category: 'Diagnostic', active: true, soatCode: '21101' },
+  { code: '903895', description: 'Creatinina en suero u otros fluidos', category: 'Diagnostic', active: true, soatCode: '19312' },
+];
+
+export const LEGAL_DISCLAIMER = "MEDICINIA.CO es un sistema de apoyo clínico y documental. No reemplaza el criterio médico profesional. El uso de esta herramienta está sujeto a la Ley 23 de 1981 y normatividad vigente.";
