@@ -1,136 +1,184 @@
-import { GoogleGenAI, Type, SchemaParams } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/genai";
 import { MedicalDatabase, UserProfile } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+// ⚠️ Vite usa import.meta.env, NO process.env
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string;
 
-// Schema for the Clinical Analysis Response
-const analysisSchema: SchemaParams = {
-  type: Type.OBJECT,
+if (!apiKey) {
+  throw new Error("VITE_GEMINI_API_KEY is not defined");
+}
+
+const genAI = new GoogleGenerativeAI(apiKey);
+
+// =========================
+// Response Schema
+// =========================
+const analysisSchema = {
+  type: SchemaType.OBJECT,
   properties: {
-    correctedText: { type: Type.STRING, description: "The clinical note corrected for grammar, spelling, and professional medical terminology (Spanish). Format: Formal medical record style." },
-    summary: { type: Type.STRING, description: "A concise summary of the patient's current evolution." },
+    correctedText: {
+      type: SchemaType.STRING,
+      description:
+        "Nota clínica corregida en español médico formal."
+    },
+    summary: {
+      type: SchemaType.STRING,
+      description:
+        "Resumen conciso de la evolución actual del paciente."
+    },
     diagnostics: {
-      type: Type.ARRAY,
+      type: SchemaType.ARRAY,
       items: {
-        type: Type.OBJECT,
+        type: SchemaType.OBJECT,
         properties: {
-          code: { type: Type.STRING, description: "The CIE-10 code EXACTLY as found in the provided database context." },
-          description: { type: Type.STRING, description: "The official description." },
-          probability: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
-          justification: { type: Type.STRING, description: "Clinical reasoning for this diagnosis." },
+          code: { type: SchemaType.STRING },
+          description: { type: SchemaType.STRING },
+          probability: {
+            type: SchemaType.STRING,
+            enum: ["High", "Medium", "Low"]
+          },
+          justification: { type: SchemaType.STRING }
         },
         required: ["code", "description", "probability", "justification"]
       }
     },
     procedures: {
-      type: Type.ARRAY,
+      type: SchemaType.ARRAY,
       items: {
-        type: Type.OBJECT,
+        type: SchemaType.OBJECT,
         properties: {
-          cups: { type: Type.STRING, description: "The CUPS code EXACTLY as found in the provided database context." },
-          soat: { type: Type.STRING, description: "The SOAT code if available." },
-          description: { type: Type.STRING },
-          justification: { type: Type.STRING, description: "Medical necessity for this procedure." },
+          cups: { type: SchemaType.STRING },
+          soat: { type: SchemaType.STRING },
+          description: { type: SchemaType.STRING },
+          justification: { type: SchemaType.STRING }
         },
         required: ["cups", "description", "justification"]
       }
     },
-    plan: { type: Type.STRING, description: "Detailed clinical management plan (conducta), including medications, exams, or referrals." },
-    alerts: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Clinical red flags or administrative warnings." },
+    plan: {
+      type: SchemaType.STRING,
+      description: "Plan de manejo clínico detallado."
+    },
+    alerts: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING }
+    }
   },
-  required: ["correctedText", "summary", "diagnostics", "procedures", "plan", "alerts"]
+  required: [
+    "correctedText",
+    "summary",
+    "diagnostics",
+    "procedures",
+    "plan",
+    "alerts"
+  ]
 };
 
-export const analyzeClinicalNote = async (
+// =========================
+// Analyze Clinical Note
+// =========================
+export async function analyzeClinicalNote(
   note: string,
   patientContext: string,
   previousEvolutions: string,
   db: MedicalDatabase,
   profile: UserProfile
-) => {
-  if (!apiKey) throw new Error("API Key missing");
+) {
+  const cie10List = db.cie10
+    .filter(c => c.active)
+    .map(c => `${c.code}: ${c.description}`)
+    .join("\n");
 
-  // Construct the prompt with the "Controlled Database"
-  const cie10List = db.cie10.filter(c => c.active).map(c => `${c.code}: ${c.description}`).join('\n');
-  const cupsList = db.cups.filter(c => c.active).map(c => `${c.code} (SOAT: ${c.soatCode || 'N/A'}): ${c.description}`).join('\n');
+  const cupsList = db.cups
+    .filter(c => c.active)
+    .map(
+      c =>
+        `${c.code} (SOAT: ${c.soatCode ?? "N/A"}): ${c.description}`
+    )
+    .join("\n");
 
   const prompt = `
-    ROL: Actúa como un Asistente Médico Experto para un profesional con el rol de "${profile.role}" y especialidad en "${profile.specialty}".
-    
-    TAREA: Analizar una nueva evolución clínica y estructurar la salida.
+ROL: Asistente médico experto para ${profile.role}, especialidad ${profile.specialty}.
 
-    CONTEXTO DEL PACIENTE:
-    ${patientContext}
+CONTEXTO DEL PACIENTE:
+${patientContext}
 
-    HISTORIA PREVIA (RESUMEN):
-    ${previousEvolutions || "Primera atención."}
+HISTORIA PREVIA:
+${previousEvolutions || "Primera atención."}
 
-    NUEVA NOTA CLÍNICA (TEXTO LIBRE):
-    "${note}"
+NOTA CLÍNICA:
+"${note}"
 
-    REGLAS DE SEGURIDAD (ANTI-ALUCINACIÓN):
-    1. DIAGNÓSTICOS: Solo sugiere códigos CIE-10 que estén en la LISTA AUTORIZADA abajo. Si el paciente tiene algo que no está en la lista, menciónalo en "alerts" pero no inventes el código.
-    2. PROCEDIMIENTOS: Solo sugiere códigos CUPS que estén en la LISTA AUTORIZADA abajo.
-    3. TONO: Usa terminología médica formal, adaptada a la especialidad de ${profile.specialty}.
-    4. NO INVENTAR: Si falta información, indícalo.
+REGLAS:
+- Solo usar códigos CIE-10 y CUPS listados.
+- No inventar diagnósticos.
+- Usar lenguaje médico formal.
 
-    LISTA CIE-10 AUTORIZADA:
-    ${cie10List}
+CIE-10 AUTORIZADOS:
+${cie10List}
 
-    LISTA CUPS AUTORIZADA:
-    ${cupsList}
-  `;
+CUPS AUTORIZADOS:
+${cupsList}
+`;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: analysisSchema,
-        systemInstruction: `Eres un asistente clínico estricto. Tu prioridad es la seguridad del paciente y la trazabilidad documental bajo normativa colombiana. Eres especialista en ${profile.specialty}.`,
-        temperature: 0.2,
-      }
-    });
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    generationConfig: {
+      temperature: 0.2,
+      responseMimeType: "application/json",
+      responseSchema: analysisSchema
+    }
+  });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
-    return JSON.parse(text);
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
 
-  } catch (error) {
-    console.error("Gemini Error:", error);
-    throw error;
+  if (!text) {
+    throw new Error("Respuesta vacía del modelo");
   }
-};
 
-export const consultMedicalBase = async (query: string, db: MedicalDatabase, profile: UserProfile) => {
-     if (!apiKey) throw new Error("API Key missing");
-     
-     const cie10List = db.cie10.filter(c => c.active).map(c => `${c.code}: ${c.description}`).join('\n');
-     const cupsList = db.cups.filter(c => c.active).map(c => `${c.code}: ${c.description}`).join('\n');
-     
-     const prompt = `
-        Pregunta del médico (${profile.specialty}): "${query}"
-        
-        Responde basándote EXCLUSIVAMENTE en las siguientes bases de datos autorizadas:
-        
-        CIE-10:
-        ${cie10List}
+  return JSON.parse(text);
+}
 
-        CUPS:
-        ${cupsList}
-        
-        Instrucciones:
-        1. Si la respuesta implica un código, debe estar en la lista.
-        2. Provee una explicación clínica breve si es relevante.
-        3. Si no encuentras el concepto en la lista, di: "No se encontró información en la base de datos controlada."
-     `;
+// =========================
+// Consult Controlled Medical Base
+// =========================
+export async function consultMedicalBase(
+  query: string,
+  db: MedicalDatabase,
+  profile: UserProfile
+) {
+  const cie10List = db.cie10
+    .filter(c => c.active)
+    .map(c => `${c.code}: ${c.description}`)
+    .join("\n");
 
-     const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-     });
+  const cupsList = db.cups
+    .filter(c => c.active)
+    .map(c => `${c.code}: ${c.description}`)
+    .join("\n");
 
-     return response.text;
+  const prompt = `
+Pregunta (${profile.specialty}):
+"${query}"
+
+Responde SOLO con base en las listas siguientes.
+
+CIE-10:
+${cie10List}
+
+CUPS:
+${cupsList}
+
+Si no hay información, responde:
+"No se encontró información en la base de datos controlada."
+`;
+
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    generationConfig: { temperature: 0.2 }
+  });
+
+  const result = await model.generateContent(prompt);
+  return result.response.text();
 }
