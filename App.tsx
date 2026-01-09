@@ -24,14 +24,27 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewState>(ViewState.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  // Persistent State
+  // Persistent State with safe defaults
   const [db, setDb] = useState<MedicalDatabase>({ cie10: [], cups: [] });
-  const [profile, setProfile] = useState<UserProfile>({ name: '', role: '', specialty: '' });
+  const [profile, setProfile] = useState<UserProfile>({ name: 'Demo', role: '', specialty: '' });
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    // Load data from LocalStorage on mount
-    setDb(storageService.getDatabase());
-    setProfile(storageService.getProfile());
+    try {
+      // Only run in browser
+      if (typeof window !== 'undefined') {
+        const storedDb = storageService.getDatabase();
+        const storedProfile = storageService.getProfile();
+        setDb(storedDb || { cie10: [], cups: [] });
+        setProfile(storedProfile || { name: 'Demo', role: '', specialty: '' });
+      }
+    } catch (e) {
+      console.error('Error cargando datos desde storageService:', e);
+      setDb({ cie10: [], cups: [] });
+      setProfile({ name: 'Demo', role: '', specialty: '' });
+    } finally {
+      setIsLoaded(true);
+    }
   }, []);
 
   const NavItem = ({ view, icon: Icon, label }: { view: ViewState, icon: any, label: string }) => (
@@ -47,6 +60,15 @@ const App: React.FC = () => {
       <span className="font-medium">{label}</span>
     </button>
   );
+
+  // Render fallback loading state if not ready
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-gray-500 text-lg">Cargando Medicinia...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-clinical-50 font-sans overflow-hidden">
@@ -86,7 +108,7 @@ const App: React.FC = () => {
             </div>
             {isSidebarOpen && (
               <div className="overflow-hidden">
-                <p className="text-sm text-white font-medium truncate">{profile.name || 'Sin Configurar'}</p>
+                <p className="text-sm text-white font-medium truncate">{profile.name}</p>
                 <p className="text-xs truncate">{profile.specialty || 'Perfil Incompleto'}</p>
               </div>
             )}
