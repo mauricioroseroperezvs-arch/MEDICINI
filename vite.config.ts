@@ -5,13 +5,12 @@ export default defineConfig({
   plugins: [react()],
 
   server: {
-    port: 5173,
-    host: true,    // Permite la conexión desde cualquier host
-    allowedHosts: 'all'  // Asegura que Vite acepte peticiones de cualquier host
+    host: true,
+    allowedHosts: "all"
   },
 
   preview: {
-    port: 3000,
-    host: true    // Asegura que esté accesible en cualquier entorno
+    host: true,
+    allowedHosts: "all"
   }
 });
