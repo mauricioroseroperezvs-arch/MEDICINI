@@ -4,7 +4,7 @@ import { analyzeClinicalNote } from '../services/geminiService';
 import { storageService } from '../services/storageService';
 import { 
     User, Activity, FileText, AlertTriangle, CheckCircle, Save, 
-    Stethoscope, Copy, Plus, ArrowLeft, Clock, Calendar 
+    Stethoscope, Copy, Plus, ArrowLeft, Clock, Calendar, Eye, RotateCcw
 } from 'lucide-react';
 
 interface ClinicalCaseProps {
@@ -28,6 +28,9 @@ const ClinicalCase: React.FC<ClinicalCaseProps> = ({ db, profile }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<any | null>(null); // Type defined in types.ts
   const [error, setError] = useState<string | null>(null);
+  
+  // History View State
+  const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
     loadPatients();
@@ -72,8 +75,14 @@ const ClinicalCase: React.FC<ClinicalCaseProps> = ({ db, profile }) => {
     const existingCase = storageService.getCaseByPatientId(patient.id);
     setCurrentCase(existingCase || null);
     setMode('CASE_DETAIL');
-    setClinicalNote('');
-    setAnalysis(null);
+    resetEditor();
+  };
+
+  const resetEditor = () => {
+      setClinicalNote('');
+      setAnalysis(null);
+      setViewingHistoryId(null);
+      setError(null);
   };
 
   const handleAnalyze = async () => {
@@ -121,9 +130,14 @@ const ClinicalCase: React.FC<ClinicalCaseProps> = ({ db, profile }) => {
       storageService.saveCase(updatedCase);
       setCurrentCase(updatedCase);
       
-      // Reset for next entry
-      setClinicalNote('');
-      setAnalysis(null);
+      resetEditor();
+  };
+
+  const handleViewHistory = (evo: ClinicalEvolution) => {
+      setClinicalNote(evo.originalText);
+      setAnalysis(evo.analysis);
+      setViewingHistoryId(evo.id);
+      // Scroll top logic could go here
   };
 
   // --- VIEWS ---
@@ -291,38 +305,45 @@ const ClinicalCase: React.FC<ClinicalCaseProps> = ({ db, profile }) => {
                 
                 <div className="space-y-6">
                     {/* New Evolution Entry Form */}
-                    <div className="bg-white rounded-xl shadow-md border border-medical-200 p-1">
-                        <div className="bg-medical-50 p-3 border-b border-medical-100 flex justify-between items-center rounded-t-lg">
-                            <span className="font-bold text-medical-800 text-sm">Nueva Evolución</span>
-                            <span className="text-xs text-medical-600">{new Date().toLocaleDateString()}</span>
+                    <div className={`bg-white rounded-xl shadow-md border p-1 transition-colors ${viewingHistoryId ? 'border-clinical-200 opacity-50' : 'border-medical-200'}`}>
+                        <div className={`p-3 border-b flex justify-between items-center rounded-t-lg ${viewingHistoryId ? 'bg-clinical-100 border-clinical-200' : 'bg-medical-50 border-medical-100'}`}>
+                            <span className={`font-bold text-sm ${viewingHistoryId ? 'text-clinical-600' : 'text-medical-800'}`}>
+                                {viewingHistoryId ? 'Visualizando Histórico' : 'Nueva Evolución'}
+                            </span>
+                            <span className="text-xs text-clinical-600">
+                                {viewingHistoryId ? 'Solo Lectura' : new Date().toLocaleDateString()}
+                            </span>
                         </div>
                         <textarea 
                             value={clinicalNote}
-                            onChange={e => setClinicalNote(e.target.value)}
+                            onChange={e => !viewingHistoryId && setClinicalNote(e.target.value)}
+                            readOnly={!!viewingHistoryId}
                             placeholder="Escriba aquí el motivo de consulta, enfermedad actual, examen físico y análisis..."
-                            className="w-full h-48 p-4 text-clinical-900 outline-none resize-none text-base leading-relaxed"
+                            className={`w-full h-48 p-4 text-clinical-900 outline-none resize-none text-base leading-relaxed ${viewingHistoryId ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
                         />
-                        <div className="p-3 border-t border-clinical-100 flex justify-end bg-gray-50 rounded-b-lg">
-                             <button
-                                onClick={handleAnalyze}
-                                disabled={isAnalyzing || !clinicalNote.trim()}
-                                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all ${
-                                    isAnalyzing 
-                                    ? 'bg-clinical-200 text-clinical-500 cursor-not-allowed'
-                                    : 'bg-medical-600 text-white hover:bg-medical-700 shadow-sm'
-                                }`}
-                            >
-                                {isAnalyzing ? <Activity className="animate-spin" size={16} /> : <Stethoscope size={16} />}
-                                {isAnalyzing ? 'Analizando...' : 'Analizar con IA'}
-                            </button>
-                        </div>
+                        {!viewingHistoryId && (
+                            <div className="p-3 border-t border-clinical-100 flex justify-end bg-gray-50 rounded-b-lg">
+                                <button
+                                    onClick={handleAnalyze}
+                                    disabled={isAnalyzing || !clinicalNote.trim()}
+                                    className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all ${
+                                        isAnalyzing 
+                                        ? 'bg-clinical-200 text-clinical-500 cursor-not-allowed'
+                                        : 'bg-medical-600 text-white hover:bg-medical-700 shadow-sm'
+                                    }`}
+                                >
+                                    {isAnalyzing ? <Activity className="animate-spin" size={16} /> : <Stethoscope size={16} />}
+                                    {isAnalyzing ? 'Analizando...' : 'Analizar con IA'}
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Historical Evolutions (Reverse Order) */}
                     {currentCase?.evolutions.slice().reverse().map((evo) => (
                         <div key={evo.id} className="relative pl-6 border-l-2 border-clinical-300">
-                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-clinical-400 border-2 border-clinical-50"></div>
-                            <div className="bg-white rounded-lg p-4 shadow-sm border border-clinical-200 mb-4 opacity-80 hover:opacity-100 transition-opacity">
+                            <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-clinical-50 ${viewingHistoryId === evo.id ? 'bg-medical-500' : 'bg-clinical-400'}`}></div>
+                            <div className={`bg-white rounded-lg p-4 shadow-sm border mb-4 transition-all ${viewingHistoryId === evo.id ? 'border-medical-500 ring-1 ring-medical-500' : 'border-clinical-200 hover:border-medical-300'}`}>
                                 <div className="flex justify-between items-start mb-2">
                                     <span className="text-xs font-bold text-clinical-500 bg-clinical-100 px-2 py-1 rounded">
                                         {new Date(evo.date).toLocaleString()}
@@ -335,7 +356,12 @@ const ClinicalCase: React.FC<ClinicalCaseProps> = ({ db, profile }) => {
                                 <div className="text-sm font-semibold text-medical-700">
                                     Dx: {evo.analysis.diagnostics.map(d => d.code).join(', ')}
                                 </div>
-                                <button className="text-xs text-medical-600 mt-2 font-medium hover:underline">Ver detalle completo</button>
+                                <button 
+                                    onClick={() => handleViewHistory(evo)}
+                                    className="text-xs text-medical-600 mt-2 font-medium hover:underline flex items-center gap-1"
+                                >
+                                    <Eye size={12} /> Ver detalle completo
+                                </button>
                             </div>
                         </div>
                     ))}
@@ -357,17 +383,33 @@ const ClinicalCase: React.FC<ClinicalCaseProps> = ({ db, profile }) => {
                     </div>
                 ) : (
                     <div className="space-y-6 animate-fade-in pb-10">
-                        <div className="flex justify-between items-center border-b border-clinical-100 pb-4">
-                            <h3 className="text-lg font-bold text-medical-700 flex items-center gap-2">
-                                <Activity /> Auditoría & Sugerencias IA
-                            </h3>
-                            <button 
-                                onClick={handleSaveEvolution}
-                                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold shadow-md flex items-center gap-2"
-                            >
-                                <Save size={18} /> Confirmar y Guardar
-                            </button>
-                        </div>
+                        {/* Status Header */}
+                        {viewingHistoryId ? (
+                            <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg flex justify-between items-center mb-4">
+                                <div className="flex items-center gap-2 text-orange-800 font-bold">
+                                    <Clock size={20} />
+                                    <span>Visualizando Histórico</span>
+                                </div>
+                                <button 
+                                    onClick={resetEditor}
+                                    className="text-sm bg-white border border-orange-300 text-orange-700 px-3 py-1.5 rounded-md font-medium hover:bg-orange-50 flex items-center gap-1"
+                                >
+                                    <RotateCcw size={14} /> Volver a Nueva Evolución
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex justify-between items-center border-b border-clinical-100 pb-4">
+                                <h3 className="text-lg font-bold text-medical-700 flex items-center gap-2">
+                                    <Activity /> Auditoría & Sugerencias IA
+                                </h3>
+                                <button 
+                                    onClick={handleSaveEvolution}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold shadow-md flex items-center gap-2"
+                                >
+                                    <Save size={18} /> Confirmar y Guardar
+                                </button>
+                            </div>
+                        )}
 
                         {/* Analysis Content */}
                         <div className="space-y-6">

@@ -24,51 +24,29 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewState>(ViewState.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  // Persistent State with safe defaults
+  // Persistent State
   const [db, setDb] = useState<MedicalDatabase>({ cie10: [], cups: [] });
-  const [profile, setProfile] = useState<UserProfile>({ name: 'Demo', role: '', specialty: '' });
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [profile, setProfile] = useState<UserProfile>({ name: '', role: '', specialty: '' });
 
   useEffect(() => {
-    try {
-      // Only run in browser
-      if (typeof window !== 'undefined') {
-        const storedDb = storageService.getDatabase();
-        const storedProfile = storageService.getProfile();
-        setDb(storedDb || { cie10: [], cups: [] });
-        setProfile(storedProfile || { name: 'Demo', role: '', specialty: '' });
-      }
-    } catch (e) {
-      console.error('Error cargando datos desde storageService:', e);
-      setDb({ cie10: [], cups: [] });
-      setProfile({ name: 'Demo', role: '', specialty: '' });
-    } finally {
-      setIsLoaded(true);
-    }
+    // Load data from LocalStorage on mount
+    setDb(storageService.getDatabase());
+    setProfile(storageService.getProfile());
   }, []);
 
-  const NavItem = ({ view, icon: Icon, label }: { view: ViewState, icon: any, label: string }) => (
+  const NavItem = ({ view, icon: Icon, label, isOpen }: { view: ViewState, icon: any, label: string, isOpen: boolean }) => (
     <button
       onClick={() => setActiveView(view)}
-      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+      className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${
         activeView === view 
           ? 'bg-medical-600 text-white shadow-md' 
           : 'text-clinical-400 hover:bg-clinical-800 hover:text-white'
-      }`}
+      } ${isOpen ? 'justify-start space-x-3' : 'justify-center'}`}
     >
-      <Icon size={20} />
-      <span className="font-medium">{label}</span>
+      <Icon size={20} className="shrink-0" />
+      {isOpen && <span className="font-medium whitespace-nowrap">{label}</span>}
     </button>
   );
-
-  // Render fallback loading state if not ready
-  if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-500 text-lg">Cargando Medicinia...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen bg-clinical-50 font-sans overflow-hidden">
@@ -91,24 +69,25 @@ const App: React.FC = () => {
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <NavItem view={ViewState.DASHBOARD} icon={LayoutDashboard} label={isSidebarOpen ? "Dashboard" : ""} />
-          <NavItem view={ViewState.CASES} icon={Stethoscope} label={isSidebarOpen ? "Casos Clínicos" : ""} />
-          <NavItem view={ViewState.CONSULTANT} icon={MessageSquare} label={isSidebarOpen ? "Consultor IA" : ""} />
+          <NavItem view={ViewState.DASHBOARD} icon={LayoutDashboard} label="Dashboard" isOpen={isSidebarOpen} />
+          <NavItem view={ViewState.CASES} icon={Stethoscope} label="Casos Clínicos" isOpen={isSidebarOpen} />
+          <NavItem view={ViewState.CONSULTANT} icon={MessageSquare} label="Consultor IA" isOpen={isSidebarOpen} />
           <div className="pt-8 pb-2">
             {isSidebarOpen && <p className="px-4 text-xs font-semibold text-clinical-600 uppercase tracking-wider mb-2">Sistema</p>}
-            <NavItem view={ViewState.SETTINGS} icon={UserCircle} label={isSidebarOpen ? "Perfil Profesional" : ""} />
-            <NavItem view={ViewState.ADMIN} icon={SettingsIcon} label={isSidebarOpen ? "Bases de Datos" : ""} />
+            {!isSidebarOpen && <div className="h-px bg-clinical-800 mx-2 my-2" />}
+            <NavItem view={ViewState.SETTINGS} icon={UserCircle} label="Perfil Profesional" isOpen={isSidebarOpen} />
+            <NavItem view={ViewState.ADMIN} icon={SettingsIcon} label="Bases de Datos" isOpen={isSidebarOpen} />
           </div>
         </nav>
 
         <div className="p-4 border-t border-clinical-800 bg-clinical-900">
-          <div className="flex items-center space-x-3 text-clinical-400">
-            <div className="w-8 h-8 rounded-full bg-medical-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+          <div className={`flex items-center text-clinical-400 ${isSidebarOpen ? 'space-x-3' : 'justify-center'}`}>
+            <div className="w-8 h-8 rounded-full bg-medical-600 flex items-center justify-center text-white font-bold text-xs shrink-0 cursor-default" title={profile.name}>
               {profile.name ? profile.name.charAt(0).toUpperCase() : 'DR'}
             </div>
             {isSidebarOpen && (
               <div className="overflow-hidden">
-                <p className="text-sm text-white font-medium truncate">{profile.name}</p>
+                <p className="text-sm text-white font-medium truncate">{profile.name || 'Sin Configurar'}</p>
                 <p className="text-xs truncate">{profile.specialty || 'Perfil Incompleto'}</p>
               </div>
             )}
