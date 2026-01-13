@@ -7,17 +7,16 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react()],
+    // Asegura que Vite sirva desde la raíz actual
+    root: '',
     server: {
-      // En desarrollo local
       port: 5173,
     },
     preview: {
-      // En modo preview/producción, usa el puerto asignado por el sistema o el 3000
       port: Number(process.env.PORT) || 3000,
       host: true
     },
     define: {
-      // Esto inyecta la API Key de manera segura en el cliente
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
     }
   };
